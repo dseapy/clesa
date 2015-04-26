@@ -1,4 +1,4 @@
-# To see input devices (`cat /proc/bus/input/devices`).  Output looks like:
+### To see input devices (`cat /proc/bus/input/devices`).  Output looks like:
 	I: Bus=0011 Vendor=0002 Product=0005 Version=0000
 	N: Name="ImPS/2 Generic Wheel Mouse"
 	P: Phys=isa0060/serio1/input0
@@ -21,3 +21,7 @@
 	B: KEY=ff0000 0 0 0 0
 	B: REL=103
 	B: MSC=10
+
+### Add Hue Jars to local repository:
+	mvn install:install-file -Dfile=/tmp/huesdkresources.jar -DgroupId=com.philips.hue -DartifactId=hue-resources -Dversion=1.3.1 -Dpackaging=jar
+    mvn install:install-file -Dfile=/tmp/huelocalsdk.jar -DgroupId=com.philips.hue -DartifactId=hue-sdk -Dversion=1.3.1 -Dpackaging=jar
