@@ -1,3 +1,14 @@
+### For sonos support you need to install a third party rest api:
+
+sudo apt-get update
+sudo apt-get install node
+sudo apt-get install nodejs
+sudo apt-get install npm
+git clone https://github.com/jishi/node-sonos-http-api
+cd node-sonos-http-api
+npm install
+node server.js
+
 ### To see input devices (`cat /proc/bus/input/devices`).  Output looks like:
 	I: Bus=0011 Vendor=0002 Product=0005 Version=0000
 	N: Name="ImPS/2 Generic Wheel Mouse"
