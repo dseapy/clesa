@@ -1,4 +1,4 @@
-package clesa.ha.sonos.zone
+package clesa.ha.components.output.sonos.zone
 
 import com.typesafe.config.Config
 import scala.collection.JavaConversions._

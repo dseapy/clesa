@@ -1,16 +1,18 @@
-package clesa.ha.hue
+package clesa.ha.components.inputoutput.hue
 
+import org.apache.camel.impl.DefaultPollingEndpoint
+import org.apache.camel.{Processor, Producer}
 import com.philips.lighting.hue.sdk.{PHAccessPoint, PHHueSDK}
 import com.philips.lighting.model.PHLight
-import com.typesafe.config.Config
 import collection.JavaConversions._
 
-case class HueConnector(ip: String,
-                        username: String,
-                        appName: String,
-                        deviceName: String) {
-
-  verifyConnected()
+case class HueEndpoint(ipAddress: String,
+                       uri: String,
+                       appName: String = "clesa",
+                       deviceName: String = "ha",
+                       username: String = "newdeveloper")
+  extends DefaultPollingEndpoint {
+  setEndpointUri(uri)
 
   lazy val hueSdk = {
     val hSdk = PHHueSDK.create()
@@ -21,10 +23,12 @@ case class HueConnector(ip: String,
 
   lazy val accessPoint = {
     val ap = new PHAccessPoint()
-    ap.setIpAddress(ip)
+    ap.setIpAddress(ipAddress)
     ap.setUsername(username)
     ap
   }
+
+  verifyConnected()
 
   def verifyConnected() = if(!hueSdk.isAccessPointConnected(accessPoint)){
     //sleep for a second after connecting to verify it's up before sending it messages... may be better way
@@ -100,22 +104,16 @@ case class HueConnector(ip: String,
     allLights.find(_.getName.equalsIgnoreCase(name))
   }
 
-  def shutdown(): Unit ={
+  override def shutdown(): Unit ={
+    super.shutdown()
     Option(hueSdk.getSelectedBridge).filter(hueSdk.isHeartbeatEnabled).foreach{ br =>
       hueSdk.disableHeartbeat(br)
       hueSdk.disconnect(br)
     }
     hueSdk.destroySDK()
   }
-}
 
-case object HueConnector {
-  def apply(config: Config): HueConnector = {
-    val hueConfig = config.getConfig("clesa.ha.hue")
-    val bridgeIp = hueConfig.getString("bridge-ip-address")
-    val username = hueConfig.getString("username")
-    val appName = hueConfig.getString("appName")
-    val deviceName = hueConfig.getString("deviceName")
-    HueConnector(bridgeIp, username, appName, deviceName)
-  }
+  override def isSingleton: Boolean = true
+  override def createConsumer(processor: Processor) = new HueConsumer(this, processor)
+  override def createProducer(): Producer = new HueProducer(this)
 }

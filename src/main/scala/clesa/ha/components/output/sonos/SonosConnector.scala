@@ -1,12 +1,13 @@
-package clesa.ha.sonos
+package clesa.ha.components.output.sonos
 
-import clesa.ha.sonos.zone.Zone
+import clesa.ha.components.output.sonos.zone.Zone
 import clesa.ha.utils.RestUtils._
 import com.typesafe.config.{ConfigRenderOptions, ConfigFactory}
 
 import collection.JavaConversions._
 
 case class SonosConnector(ip: String) {
+
   val baseUrl = s"http://$ip:5005"
 
   def zones: Seq[Zone] = {

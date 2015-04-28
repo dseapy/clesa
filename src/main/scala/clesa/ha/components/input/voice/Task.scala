@@ -1,12 +1,11 @@
-package clesa.ha
+package clesa.ha.components.input.voice
 
-import clesa.ha.hue.HueConnector
-import clesa.ha.utils.ConfigUtils
+import clesa.ha.components.inputoutput.hue.HueEndpoint
 
 import scala.util.Try
 
 case object Task {
-  lazy val hueConnector = HueConnector(ConfigUtils.createConfigFromDefaultPaths())
+  lazy val hueConnector = HueEndpoint("192.168.0.152", "hue")
   def apply(originalTaskString: String): Unit = {
     val taskString = cleanText(originalTaskString)
     lazy val taskStringArray = taskString.split(" ")
