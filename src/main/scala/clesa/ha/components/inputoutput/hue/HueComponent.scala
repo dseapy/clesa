@@ -7,6 +7,6 @@ class HueComponent
   extends DefaultComponent {
   override def createEndpoint(uri: String, remaining: String, parameters: java.util.Map[String, AnyRef]): Endpoint = {
     val ipAddress = remaining
-    new HueEndpoint(uri, ipAddress)
+    new HueEndpoint(ipAddress, uri)
   }
 }

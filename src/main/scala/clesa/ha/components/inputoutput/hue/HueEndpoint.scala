@@ -12,6 +12,7 @@ case class HueEndpoint(ipAddress: String,
                        deviceName: String = "ha",
                        username: String = "newdeveloper")
   extends DefaultPollingEndpoint {
+
   setEndpointUri(uri)
 
   lazy val hueSdk = {
@@ -23,17 +24,18 @@ case class HueEndpoint(ipAddress: String,
 
   lazy val accessPoint = {
     val ap = new PHAccessPoint()
+    println(ipAddress)
+    println(username)
     ap.setIpAddress(ipAddress)
     ap.setUsername(username)
     ap
   }
-
   verifyConnected()
 
-  def verifyConnected() = if(!hueSdk.isAccessPointConnected(accessPoint)){
+  def verifyConnected(): Unit = if(!hueSdk.isAccessPointConnected(accessPoint)){
     //sleep for a second after connecting to verify it's up before sending it messages... may be better way
     hueSdk.connect(accessPoint)
-    Thread.sleep(1000L)
+    while(!hueSdk.isAccessPointConnected(accessPoint)){println("Waiting to connect to hue...");Thread.sleep(3000L)}
   }
 
   def bridge = {

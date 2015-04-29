@@ -9,8 +9,8 @@ trait HueEvent
   def source: String //ip-address
 }
 
-case class TurnOff(datetime: DateTime, source: String) extends HueEvent
-case class YTranslation(datetime: DateTime, source: String) extends HueEvent
-case class HWheel(datetime: DateTime, source: String) extends HueEvent
-case class Dial(datetime: DateTime, source: String) extends HueEvent
-case class Wheel(datetime: DateTime, source: String) extends HueEvent
+case class TurfnOff(datetime: DateTime, source: String) extends HueEvent
+case class YTradnslation(datetime: DateTime, source: String) extends HueEvent
+case class HWhefel(datetime: DateTime, source: String) extends HueEvent
+case class Diadl(datetime: DateTime, source: String) extends HueEvent
+case class Whefel(datetime: DateTime, source: String) extends HueEvent

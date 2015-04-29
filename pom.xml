@@ -15,14 +15,20 @@
 		<camel.version>2.15.1</camel.version>
 	</properties>
 
+
+	<reporting>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.camel</groupId>
+				<artifactId>camel-maven-plugin</artifactId>
+				<version>${camel.version}</version>
+			</plugin>
+		</plugins>
+	</reporting>
+
 	<build>
 		<finalName>clesa</finalName>
 		<sourceDirectory>src/main/scala</sourceDirectory>
-		<resources>
-			<resource>
-				<directory>/src/main/resources</directory>
-			</resource>
-		</resources>
 		<testSourceDirectory>src/test/scala</testSourceDirectory>
 		<plugins>
 			<plugin>

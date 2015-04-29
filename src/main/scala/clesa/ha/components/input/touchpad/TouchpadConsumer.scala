@@ -1,6 +1,7 @@
 package clesa.ha.components.input.touchpad
 
 import java.io.{FileInputStream, DataInputStream}
+import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 import org.apache.camel.Processor
 import org.apache.camel.impl.{DefaultMessage, DefaultConsumer}
@@ -21,9 +22,17 @@ class TouchpadConsumer(endpoint: TouchpadEndpoint, processor: Processor)
       override def run(): Unit = {
         while (true) {
           fileStream.readFully(touchEvent)
-          val datetime = new DateTime(fileStream.readLong())
-          val touchCode = fileStream.readShort()
-          val touchValue = fileStream.readInt()
+          val byteBuffer = ByteBuffer.wrap(touchEvent.reverse)
+          val touchValue = byteBuffer.getInt
+          val touchCode = byteBuffer.getShort
+          val myType = byteBuffer.getShort
+          val numMicroSeconds = byteBuffer.getLong
+          val numSeconds = byteBuffer.getLong
+          val datetime = new DateTime(numSeconds * 1000L + numMicroSeconds)
+          //println(datetime)
+          //println(s"myType: $myType")
+          //println(s"touchCode:  $touchCode")
+          //println(s"touchValue:  $touchValue")
           val e = endpoint.createExchange()
           val message = new DefaultMessage
           message.setBody(TouchpadEvent(datetime, eventFilePath, touchCode, touchValue))
