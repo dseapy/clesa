@@ -2,13 +2,16 @@ package clesa.ha.components
 
 import java.util
 
+import clesa.ha.events.hue.HueEvent
 import com.philips.lighting.hue.listener.PHLightListener
 import com.philips.lighting.hue.sdk.{PHAccessPoint, PHHueSDK}
-import com.philips.lighting.model.{PHBridgeResource, PHHueError, PHLight}
+import com.philips.lighting.model.{PHLightState, PHBridgeResource, PHHueError, PHLight}
 
 import scala.collection.JavaConversions._
 
-class Hue(ipAddress: String,
+class Hue(eventCallbackFunc: HueEvent => Unit,
+          errorCallbackFunc: PHHueError => Unit,
+          ipAddress: String,
           appName: String = "clesa",
           deviceName: String = "ha",
           username: String = "newdeveloper") {
@@ -44,55 +47,45 @@ class Hue(ipAddress: String,
   val bridgeCache = bridge.getResourceCache
   val allLights = bridgeCache.getAllLights
 
-  def convertPercentToRGB(per: Int): Int = (per.toDouble*2.55).toInt
+  def updateLightState(hueEvent: HueEvent): Unit = {
+    allLights.foreach(l => l.setLastKnownLightState(hueEvent.updateState(l.getIdentifier, l.getLastKnownLightState)))
+  }
 
-  def increaseBrightnessByPercent(light: PHLight, perInc: Int): PHLight = {
-    println(s"Increasing brightness of the ${light.getName} light by $perInc")
+  def increaseBrightnessBy(light: PHLight, inc: Int): Boolean = {
+    println(s"Increasing brightness of the ${light.getName} light by $inc")
     val currentBrightness = light.getLastKnownLightState.getBrightness
     println("current brightness: " + currentBrightness)
-    val updatedBrightness = currentBrightness + convertPercentToRGB(perInc)
+    val updatedBrightness = currentBrightness + inc
     println("updated brightness: " + updatedBrightness)
-    val updatedLightState = {
-      val uls = light.getLastKnownLightState
-      if(updatedBrightness < 0){
-        if(uls.getBrightness == 0 && !uls.isOn) return light //don't do anything
-        uls.setBrightness(0)
-        uls.setOn(false)
-        uls
-      }
-      else {
-        val newBrightness = updatedBrightness min 255
-        if(uls.getBrightness == newBrightness && uls.isOn) return light //don't do anything
-        uls.setBrightness(newBrightness)
-        uls.setOn(true)
-        uls
-      }
+
+    val uls = light.getLastKnownLightState
+    if(updatedBrightness < 0){
+      if(uls.getBrightness == 0 && !uls.isOn) return false //don't do anything
+      setOff(light)
     }
+    else {
+      val newBrightness = updatedBrightness min 254
+      if(uls.getBrightness == newBrightness && uls.isOn) return false //don't do anything
+      setBrightnessTo(light, newBrightness)
+    }
+    true
+  }
+
+  def setBrightnessTo(light: PHLight, bri: Int): Boolean = {
+    println(s"Setting the brightness of the ${light.getName} light to $bri")
+    val updatedLightState = new PHLightState
+    updatedLightState.setBrightness(bri)
+    updatedLightState.setOn(true)
     bridge.updateLightState(light, updatedLightState, pHLightListener)
-    light
+    true
   }
 
-  def setBrightnessToPercent(light: PHLight, per: Int): PHLight = {
-    println(s"Setting the brightness of the ${light.getName} light to $per")
-    val currentState = light.getLastKnownLightState
-    val updatedState = {
-      currentState.setBrightness(convertPercentToRGB(per))
-      currentState.setOn(true)
-      currentState
-    }
-    bridge.updateLightState(light, updatedState, pHLightListener)
-    light
-  }
-
-  def setOff(light: PHLight) = {
+  def setOff(light: PHLight): Boolean = {
     println(s"Turning off the ${light.getName} light")
-    val currentState = light.getLastKnownLightState
-    val updatedState = {
-      currentState.setOn(false)
-      currentState
-    }
-    bridge.updateLightState(light, updatedState, pHLightListener)
-    light
+    val updatedLightState = new PHLightState
+    updatedLightState.setOn(false)
+    bridge.updateLightState(light, updatedLightState, pHLightListener)
+    true
   }
 
   def findLightByNames(names: Seq[String]): Option[PHLight] = findLightsByNames(names).headOption
@@ -120,12 +113,17 @@ class Hue(ipAddress: String,
     hueSdk.destroySDK()
   }
 
+  val lightStates = allLights.map(l => l -> l.getLastKnownLightState).toMap
+
   val pHLightListener = new PHLightListener {
-    override def onReceivingLights(list: util.List[PHBridgeResource]): Unit = println("on receiving lights:" + list)
-    override def onSearchComplete(): Unit = println("search complete: ")
-    override def onReceivingLightDetails(phLight: PHLight): Unit = println("on receiving light details:" + phLight)
-    override def onError(i: Int, s: String): Unit = println("error: " + i + " " + s)
-    override def onStateUpdate(map: util.Map[String, String], list: util.List[PHHueError]): Unit = println("on status update: " + map + list)
-    override def onSuccess(): Unit = println("success")
+    def onReceivingLights(list: util.List[PHBridgeResource]): Unit = {}
+    def onSearchComplete(): Unit = {}
+    def onReceivingLightDetails(phLight: PHLight): Unit = {}
+    def onError(i: Int, s: String): Unit = errorCallbackFunc(new PHHueError(i, s, ipAddress))
+    def onStateUpdate(updatedStateMap: util.Map[String, String], list: util.List[PHHueError]): Unit = {
+      HueEvent(updatedStateMap).foreach(eventCallbackFunc)
+      println(list)
+    }
+    def onSuccess(): Unit = {}
   }
 }
