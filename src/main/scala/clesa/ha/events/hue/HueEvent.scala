@@ -1,6 +1,6 @@
-package clesa.ha.events
+package clesa.ha.events.hue
 
-import clesa.ha.Event
+import clesa.ha.events.Event
 import org.joda.time.DateTime
 
 trait HueEvent

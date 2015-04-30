@@ -1,29 +1,56 @@
 package clesa.ha
 
-import clesa.ha.aggregators.HueEventAggregationStrategy
-import clesa.ha.components.input.touchpad.TouchpadComponent
-import clesa.ha.components.inputoutput.hue.HueComponent
-import clesa.ha.controllers.HueController
-import org.apache.camel.CamelContext
-import org.apache.camel.impl.DefaultCamelContext
-import org.apache.camel.scala.dsl.builder.ScalaRouteBuilder
-import org.apache.log4j.Logger
+import akka.actor.{Props, ActorSystem}
+import clesa.ha.actors.{BroadcastActor, LinuxInputActor, HueActor}
 
 object ClesaApp
   extends App {
-  //val configPath: String = "/opt/clesa/primary.conf"
-  Logger.getLogger(ClesaApp.getClass).debug("Hello")
-  val context: CamelContext = new DefaultCamelContext
-  context.addComponent("hue", new HueComponent)
-  context.addComponent("touchpad", new TouchpadComponent)
-  context.setTracing(true)
-  val hueController = new HueController()
-  val routeBuilder = new ScalaRouteBuilder(context) {
-    "touchpad:event3" --> "direct:hueController"
-    from("direct:hueController").filter(simple("${in.header.foo}")).to("direct:toHue")
-    "direct:toHue" process hueController aggregate(constant("id"), new HueEventAggregationStrategy) completionInterval(HueEventAggregationStrategy.completionInterval) to "hue:192.168.0.152"
-  }
-  context.addRoutes(routeBuilder)
-  context.start()
-  //while(true) {Thread.sleep(300000L)} //sleep for 30 seconds
+  val system = ActorSystem("ClesaActorSystem")
+  val broadcastActor = system.actorOf(Props(classOf[BroadcastActor]), name = BroadcastActor.name)
+  val hueActor = system.actorOf(Props(classOf[HueActor], broadcastActor, "192.168.0.152"), name = HueActor.name)
+  broadcastActor ! hueActor
+  val linuxInputActor = system.actorOf(Props(classOf[LinuxInputActor], broadcastActor, "/dev/input/event3"), name = LinuxInputActor.name)
+  broadcastActor ! linuxInputActor
 }
+
+
+/**
+package clesa.ha.components.input.voice
+
+import clesa.ha.components.Hue
+
+import scala.util.Try
+
+case object Task {
+  lazy val hueConnector = new Hue("192.168.0.152")
+  def apply(originalTaskString: String): Unit = {
+    val taskString = cleanText(originalTaskString)
+    lazy val taskStringArray = taskString.split(" ")
+
+    //hue
+    val lightMentioned = taskString.contains("light")
+    val lightOption = hueConnector.findLightByNames(taskStringArray)
+    println(taskString)
+
+    if(lightOption.nonEmpty && taskString.contains("percent") && lightMentioned){
+      Try{
+        val briString = taskStringArray(taskStringArray.indexOf("percent") - 1)
+        val cleanedBriString = if(briString.startsWith("2") && briString.toInt > 100) briString.replaceFirst("2","") else briString
+        val bri = cleanedBriString.toInt
+        if((taskString contains "by") && ((taskString contains "increase") || (taskString contains "up")))
+          hueConnector.increaseBrightnessByPercent(lightOption.get, bri)
+        else if((taskString contains "by") && (taskString contains "decrease") || (taskString contains "down"))
+          hueConnector.increaseBrightnessByPercent(lightOption.get, -bri)
+        else
+          hueConnector.setBrightnessToPercent(lightOption.get, bri)
+      }
+    }
+    else if(taskString.contains("on") && lightOption.nonEmpty && lightMentioned) hueConnector.setBrightnessToPercent(lightOption.get, 100)
+    else if(taskString.contains("off") && lightOption.nonEmpty && lightMentioned) hueConnector.setOff(lightOption.get)
+  }
+
+  def cleanText(originalTaskString: String): String = {
+    originalTaskString.replace("%", " percent").replace("  "," ")
+  }
+}
+  */

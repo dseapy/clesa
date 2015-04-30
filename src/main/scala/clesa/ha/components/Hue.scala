@@ -1,48 +1,48 @@
-package clesa.ha.components.inputoutput.hue
+package clesa.ha.components
 
-import org.apache.camel.impl.DefaultPollingEndpoint
-import org.apache.camel.{Processor, Producer}
+import java.util
+
+import com.philips.lighting.hue.listener.PHLightListener
 import com.philips.lighting.hue.sdk.{PHAccessPoint, PHHueSDK}
-import com.philips.lighting.model.PHLight
-import collection.JavaConversions._
+import com.philips.lighting.model.{PHBridgeResource, PHHueError, PHLight}
 
-case class HueEndpoint(ipAddress: String,
-                       uri: String,
-                       appName: String = "clesa",
-                       deviceName: String = "ha",
-                       username: String = "newdeveloper")
-  extends DefaultPollingEndpoint {
+import scala.collection.JavaConversions._
 
-  setEndpointUri(uri)
+class Hue(ipAddress: String,
+          appName: String = "clesa",
+          deviceName: String = "ha",
+          username: String = "newdeveloper") {
 
-  lazy val hueSdk = {
+  val hueSdk = {
     val hSdk = PHHueSDK.create()
     hSdk.setAppName(appName)
     hSdk.setDeviceName(deviceName)
     hSdk
   }
 
-  lazy val accessPoint = {
+  val accessPoint = {
     val ap = new PHAccessPoint()
-    println(ipAddress)
-    println(username)
     ap.setIpAddress(ipAddress)
     ap.setUsername(username)
     ap
   }
-  verifyConnected()
+  blockUntilConnected()
 
-  def verifyConnected(): Unit = if(!hueSdk.isAccessPointConnected(accessPoint)){
-    //sleep for a second after connecting to verify it's up before sending it messages... may be better way
-    hueSdk.connect(accessPoint)
-    while(!hueSdk.isAccessPointConnected(accessPoint)){println("Waiting to connect to hue...");Thread.sleep(3000L)}
+  def blockUntilConnected(): Unit = {
+    if(!hueSdk.isAccessPointConnected(accessPoint)){
+      hueSdk.connect(accessPoint)
+      while(!hueSdk.isAccessPointConnected(accessPoint)){
+        println("Waiting to connect to hue...")
+        Thread.sleep(300L)
+      }
+      println("Connected to hue!")
+    }
   }
 
   val bridge = hueSdk.getSelectedBridge
-
-  hueSdk.enableHeartbeat(bridge, 1000L) //update status every 1 second (minimum)
-  def bridgeCache = bridge.getResourceCache
-  def allLights = bridgeCache.getAllLights
+  hueSdk.enableHeartbeat(bridge, PHHueSDK.HB_INTERVAL)
+  val bridgeCache = bridge.getResourceCache
+  val allLights = bridgeCache.getAllLights
 
   def convertPercentToRGB(per: Int): Int = (per.toDouble*2.55).toInt
 
@@ -68,7 +68,7 @@ case class HueEndpoint(ipAddress: String,
         uls
       }
     }
-    bridge.updateLightState(light, updatedLightState)
+    bridge.updateLightState(light, updatedLightState, pHLightListener)
     light
   }
 
@@ -80,7 +80,7 @@ case class HueEndpoint(ipAddress: String,
       currentState.setOn(true)
       currentState
     }
-    bridge.updateLightState(light, updatedState)
+    bridge.updateLightState(light, updatedState, pHLightListener)
     light
   }
 
@@ -91,7 +91,7 @@ case class HueEndpoint(ipAddress: String,
       currentState.setOn(false)
       currentState
     }
-    bridge.updateLightState(light, updatedState)
+    bridge.updateLightState(light, updatedState, pHLightListener)
     light
   }
 
@@ -112,8 +112,7 @@ case class HueEndpoint(ipAddress: String,
     allLights.find(_.getName.equalsIgnoreCase(name))
   }
 
-  override def shutdown(): Unit ={
-    super.shutdown()
+  def shutdown(): Unit ={
     Option(hueSdk.getSelectedBridge).filter(hueSdk.isHeartbeatEnabled).foreach{ br =>
       hueSdk.disableHeartbeat(br)
       hueSdk.disconnect(br)
@@ -121,7 +120,12 @@ case class HueEndpoint(ipAddress: String,
     hueSdk.destroySDK()
   }
 
-  override def isSingleton: Boolean = true
-  override def createConsumer(processor: Processor) = new HueConsumer(this, processor)
-  override def createProducer(): Producer = new HueProducer(this)
+  val pHLightListener = new PHLightListener {
+    override def onReceivingLights(list: util.List[PHBridgeResource]): Unit = println("on receiving lights:" + list)
+    override def onSearchComplete(): Unit = println("search complete: ")
+    override def onReceivingLightDetails(phLight: PHLight): Unit = println("on receiving light details:" + phLight)
+    override def onError(i: Int, s: String): Unit = println("error: " + i + " " + s)
+    override def onStateUpdate(map: util.Map[String, String], list: util.List[PHHueError]): Unit = println("on status update: " + map + list)
+    override def onSuccess(): Unit = println("success")
+  }
 }
