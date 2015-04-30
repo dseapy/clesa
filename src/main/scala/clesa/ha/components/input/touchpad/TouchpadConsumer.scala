@@ -3,6 +3,7 @@ package clesa.ha.components.input.touchpad
 import java.io.{FileInputStream, DataInputStream}
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
+import clesa.ha.events.TouchpadEvent
 import org.apache.camel.Processor
 import org.apache.camel.impl.{DefaultMessage, DefaultConsumer}
 import org.joda.time.DateTime
@@ -29,13 +30,11 @@ class TouchpadConsumer(endpoint: TouchpadEndpoint, processor: Processor)
           val numMicroSeconds = byteBuffer.getLong
           val numSeconds = byteBuffer.getLong
           val datetime = new DateTime(numSeconds * 1000L + numMicroSeconds)
-          //println(datetime)
-          //println(s"myType: $myType")
-          //println(s"touchCode:  $touchCode")
-          //println(s"touchValue:  $touchValue")
           val e = endpoint.createExchange()
           val message = new DefaultMessage
+          message.setHeader("source", "touchpad")
           message.setBody(TouchpadEvent(datetime, eventFilePath, touchCode, touchValue))
+          println(s"Touchpad:  Produced Event ${message.getBody}")
           e.setIn(message)
           processor.process(e)
         }

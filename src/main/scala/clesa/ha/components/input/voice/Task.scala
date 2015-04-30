@@ -25,10 +25,10 @@ case object Task {
         else if((taskString contains "by") && (taskString contains "decrease") || (taskString contains "down"))
           hueConnector.increaseBrightnessByPercent(lightOption.get, -bri)
         else
-          hueConnector.setBrightnessByPercent(lightOption.get, bri)
+          hueConnector.setBrightnessToPercent(lightOption.get, bri)
       }
     }
-    else if(taskString.contains("on") && lightOption.nonEmpty && lightMentioned) hueConnector.setBrightnessByPercent(lightOption.get, 100)
+    else if(taskString.contains("on") && lightOption.nonEmpty && lightMentioned) hueConnector.setBrightnessToPercent(lightOption.get, 100)
     else if(taskString.contains("off") && lightOption.nonEmpty && lightMentioned) hueConnector.setOff(lightOption.get)
   }
 

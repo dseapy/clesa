@@ -1,4 +1,4 @@
-package clesa.ha.components.input.touchpad
+package clesa.ha.events
 
 import clesa.ha.Event
 import org.joda.time.DateTime

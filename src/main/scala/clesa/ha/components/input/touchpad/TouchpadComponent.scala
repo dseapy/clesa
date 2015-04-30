@@ -7,6 +7,7 @@ import org.apache.camel.impl.DefaultComponent
  * This component takes the input from a touchpad with the provided event id in "remaining".
  * It produces a TouchpadEvent.
  * ie. from(touchpad:event13).to(direct:handleTouchpadEvent)
+ * http://unix.stackexchange.com/questions/17170/disable-keyboard-mouse-input-on-unix-under-x
  */
 class TouchpadComponent
   extends DefaultComponent {

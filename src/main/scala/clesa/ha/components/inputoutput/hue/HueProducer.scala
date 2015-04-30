@@ -1,6 +1,6 @@
 package clesa.ha.components.inputoutput.hue
 
-import clesa.ha.components.input.touchpad.{Wheel, TouchpadEvent}
+import clesa.ha.events.{SetLightToPercent, IncreaseLightByPercent, HueEvent}
 import org.apache.camel.Exchange
 import org.apache.camel.impl.DefaultProducer
 
@@ -10,17 +10,13 @@ class HueProducer(endpoint: HueEndpoint)
   def myLight = endpoint.getLightByName("tv").get
 
   override def process(exchange: Exchange): Unit = {
-    exchange.getIn.getBody(classOf[TouchpadEvent]) match{
-      case wheel: Wheel => {
-        println(wheel)
-        println(wheel.value)
-        println(endpoint.allLights)
-        println(myLight)
-        if(wheel.value != 0) endpoint.increaseBrightnessByPercent(myLight, wheel.value * 5)
-      }
+    println(s"received exchange: ${exchange.getIn.getBody}")
+    exchange.getIn.getBody(classOf[HueEvent]) match {
+      case ilbp: IncreaseLightByPercent if ilbp.value != 0 => endpoint.increaseBrightnessByPercent(myLight, ilbp.value)
+      case sltp: SetLightToPercent => endpoint.setBrightnessToPercent(myLight, sltp.value)
       case _ =>
     }
-    //do stuff
+
   }
 
   override def doStart() = {

@@ -38,10 +38,9 @@ case class HueEndpoint(ipAddress: String,
     while(!hueSdk.isAccessPointConnected(accessPoint)){println("Waiting to connect to hue...");Thread.sleep(3000L)}
   }
 
-  def bridge = {
-    verifyConnected()
-    hueSdk.getSelectedBridge
-  }
+  val bridge = hueSdk.getSelectedBridge
+
+  hueSdk.enableHeartbeat(bridge, 1000L) //update status every 1 second (minimum)
   def bridgeCache = bridge.getResourceCache
   def allLights = bridgeCache.getAllLights
 
@@ -50,23 +49,30 @@ case class HueEndpoint(ipAddress: String,
   def increaseBrightnessByPercent(light: PHLight, perInc: Int): PHLight = {
     println(s"Increasing brightness of the ${light.getName} light by $perInc")
     val currentBrightness = light.getLastKnownLightState.getBrightness
-    val updatedBrightness = {
-      val unscaled = currentBrightness + convertPercentToRGB(perInc)
-      if(unscaled > 255) 255
-      else if(unscaled < 0) 0
-      else unscaled
-    }
+    println("current brightness: " + currentBrightness)
+    val updatedBrightness = currentBrightness + convertPercentToRGB(perInc)
+    println("updated brightness: " + updatedBrightness)
     val updatedLightState = {
       val uls = light.getLastKnownLightState
-      uls.setBrightness(updatedBrightness)
-      uls.setOn(true)
-      uls
+      if(updatedBrightness < 0){
+        if(uls.getBrightness == 0 && !uls.isOn) return light //don't do anything
+        uls.setBrightness(0)
+        uls.setOn(false)
+        uls
+      }
+      else {
+        val newBrightness = updatedBrightness min 255
+        if(uls.getBrightness == newBrightness && uls.isOn) return light //don't do anything
+        uls.setBrightness(newBrightness)
+        uls.setOn(true)
+        uls
+      }
     }
     bridge.updateLightState(light, updatedLightState)
     light
   }
 
-  def setBrightnessByPercent(light: PHLight, per: Int): PHLight = {
+  def setBrightnessToPercent(light: PHLight, per: Int): PHLight = {
     println(s"Setting the brightness of the ${light.getName} light to $per")
     val currentState = light.getLastKnownLightState
     val updatedState = {
