@@ -6,14 +6,11 @@ import clesa.ha.events.hue.HueEvent
 import clesa.ha.events.linuxinput.Wheel
 import com.philips.lighting.model.PHHueError
 import collection.JavaConversions._
-import scala.collection.mutable
 
 class HueActor(broadcastActor: ActorRef, ipAddress: String)
   extends Actor {
 
   var stateKnown = true
-
-  val wheelQueue = new mutable.Queue[Wheel]()
 
   val hue = new Hue(hueEvent => broadcastActor ! hueEvent,
                     hueError => self ! hueError,
@@ -25,25 +22,16 @@ class HueActor(broadcastActor: ActorRef, ipAddress: String)
   def receive = {
     case te: Wheel => {
       println("Received Wheel!")
-      if(stateKnown) stateKnown = !hue.increaseBrightnessBy(hue.allLights.head, te.value * 5)
-      else wheelQueue.enqueue(te)
+      if(stateKnown) stateKnown = !hue.increaseBrightnessBy(hue.allLights.head, te.value * 10)
     }
     case he: HueEvent => {
       println("Received Hue Event!")
       hue.updateLightState(he)
-      if(wheelQueue.isEmpty) stateKnown = true
-      else {
-        val te = wheelQueue.dequeueAll(_ => true).reduce((a, b) => Wheel(a.datetime, a.source, a.value + b.value))
-        stateKnown = !hue.increaseBrightnessBy(hue.allLights.head, te.value * 5)
-      }
+      stateKnown = true
     }
     case hError: PHHueError => {
       println("Received Error Event!")
-      if(wheelQueue.isEmpty) stateKnown = true
-      else {
-        val te = wheelQueue.dequeueAll(_ => true).reduce((a, b) => Wheel(a.datetime, a.source, a.value + b.value))
-        stateKnown = !hue.increaseBrightnessBy(hue.allLights.head, te.value * 5)
-      }
+      stateKnown = true
     }
     case other => println(s"don't know what to do with anything but a wheel :(" + other)
   }

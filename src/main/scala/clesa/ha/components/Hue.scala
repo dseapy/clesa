@@ -29,7 +29,22 @@ class Hue(eventCallbackFunc: HueEvent => Unit,
     ap.setUsername(username)
     ap
   }
+
   blockUntilConnected()
+
+  val bridge = hueSdk.getSelectedBridge
+  hueSdk.enableHeartbeat(bridge, PHHueSDK.HB_INTERVAL)
+  val bridgeCache = bridge.getResourceCache
+  val allLights = bridgeCache.getAllLights
+  val pHLightListener = new PHLightListener {
+    def onReceivingLights(list: util.List[PHBridgeResource]): Unit = {}
+    def onSearchComplete(): Unit = {}
+    def onReceivingLightDetails(phLight: PHLight): Unit = {}
+    def onError(i: Int, s: String): Unit = errorCallbackFunc(new PHHueError(i, s, ipAddress))
+    def onStateUpdate(updatedStateMap: util.Map[String, String], list: util.List[PHHueError]): Unit =
+      HueEvent(updatedStateMap).foreach(eventCallbackFunc)
+    def onSuccess(): Unit = {}
+  }
 
   def blockUntilConnected(): Unit = {
     if(!hueSdk.isAccessPointConnected(accessPoint)){
@@ -41,89 +56,44 @@ class Hue(eventCallbackFunc: HueEvent => Unit,
       println("Connected to hue!")
     }
   }
-
-  val bridge = hueSdk.getSelectedBridge
-  hueSdk.enableHeartbeat(bridge, PHHueSDK.HB_INTERVAL)
-  val bridgeCache = bridge.getResourceCache
-  val allLights = bridgeCache.getAllLights
-
-  def updateLightState(hueEvent: HueEvent): Unit = {
+  def updateLightState(hueEvent: HueEvent): Unit =
     allLights.foreach(l => l.setLastKnownLightState(hueEvent.updateState(l.getIdentifier, l.getLastKnownLightState)))
-  }
-
-  def increaseBrightnessBy(light: PHLight, inc: Int): Boolean = {
-    println(s"Increasing brightness of the ${light.getName} light by $inc")
-    val currentBrightness = light.getLastKnownLightState.getBrightness
-    println("current brightness: " + currentBrightness)
-    val updatedBrightness = currentBrightness + inc
-    println("updated brightness: " + updatedBrightness)
-
-    val uls = light.getLastKnownLightState
-    if(updatedBrightness < 0){
-      if(uls.getBrightness == 0 && !uls.isOn) return false //don't do anything
-      setOff(light)
-    }
-    else {
-      val newBrightness = updatedBrightness min 254
-      if(uls.getBrightness == newBrightness && uls.isOn) return false //don't do anything
-      setBrightnessTo(light, newBrightness)
-    }
-    true
-  }
-
+  def increaseBrightnessBy(light: PHLight, inc: Int): Boolean =
+    setBrightnessTo(light, light.getLastKnownLightState.getBrightness + inc)
   def setBrightnessTo(light: PHLight, bri: Int): Boolean = {
-    println(s"Setting the brightness of the ${light.getName} light to $bri")
-    val updatedLightState = new PHLightState
-    updatedLightState.setBrightness(bri)
-    updatedLightState.setOn(true)
-    bridge.updateLightState(light, updatedLightState, pHLightListener)
-    true
-  }
-
-  def setOff(light: PHLight): Boolean = {
-    println(s"Turning off the ${light.getName} light")
-    val updatedLightState = new PHLightState
-    updatedLightState.setOn(false)
-    bridge.updateLightState(light, updatedLightState, pHLightListener)
-    true
-  }
-
-  def findLightByNames(names: Seq[String]): Option[PHLight] = findLightsByNames(names).headOption
-
-  def findLightsByNames(names: Seq[String]): Seq[PHLight] = {
-    val allMyLights = allLights //to avoid having to query for this information multiple times
-    names.flatMap { name =>
-      allMyLights.find(_.getName.equalsIgnoreCase(name))
+    val updatedBrightness = bri min 254
+    val currentBrightness = light.getLastKnownLightState.getBrightness
+    if(updatedBrightness < 0) setOff(light)
+    else {
+      if(currentBrightness == updatedBrightness) setOn(light)
+      else sendNewLightState(light, onOption = Some(true), briOption = Some(updatedBrightness))
     }
   }
+  def setOff(light: PHLight): Boolean = sendNewLightState(light, onOption = Some(false))
+  def setOn(light: PHLight): Boolean = sendNewLightState(light, onOption = Some(true))
+  def sendNewLightState(light: PHLight,
+                        onOption: Option[Boolean] = None,
+                        briOption: Option[Int] = None): Boolean = {
+    val updatedLightState = new PHLightState
+    onOption.find(_ != light.getLastKnownLightState.isOn).foreach(on => updatedLightState.setOn(on))
+    briOption.find(_ != light.getLastKnownLightState.getBrightness).foreach(bri => updatedLightState.setBrightness(bri))
+    if(updatedLightState != new PHLightState){
+      println(s"Submitting light state: $updatedLightState to light $light")
+      bridge.updateLightState(light, updatedLightState, pHLightListener)
+      true
+    } else false
 
-  def getLightById(id: String): Option[PHLight] = {
-    allLights.find(_.getIdentifier.equalsIgnoreCase(id))
   }
-
-  def getLightByName(name: String): Option[PHLight] = {
-    allLights.find(_.getName.equalsIgnoreCase(name))
-  }
-
+  def findLightByNames(names: Seq[String]): Option[PHLight] = findLightsByNames(names).headOption
+  def findLightsByNames(names: Seq[String]): Seq[PHLight] = names.flatMap { name => allLights.find(_.getName.equalsIgnoreCase(name)) }
+  def getLightById(id: String): Option[PHLight] = allLights.find(_.getIdentifier.equalsIgnoreCase(id))
+  def getLightByName(name: String): Option[PHLight] = allLights.find(_.getName.equalsIgnoreCase(name))
+  def lightStates = allLights.map(l => l -> l.getLastKnownLightState).toMap
   def shutdown(): Unit ={
     Option(hueSdk.getSelectedBridge).filter(hueSdk.isHeartbeatEnabled).foreach{ br =>
       hueSdk.disableHeartbeat(br)
       hueSdk.disconnect(br)
     }
     hueSdk.destroySDK()
-  }
-
-  val lightStates = allLights.map(l => l -> l.getLastKnownLightState).toMap
-
-  val pHLightListener = new PHLightListener {
-    def onReceivingLights(list: util.List[PHBridgeResource]): Unit = {}
-    def onSearchComplete(): Unit = {}
-    def onReceivingLightDetails(phLight: PHLight): Unit = {}
-    def onError(i: Int, s: String): Unit = errorCallbackFunc(new PHHueError(i, s, ipAddress))
-    def onStateUpdate(updatedStateMap: util.Map[String, String], list: util.List[PHHueError]): Unit = {
-      HueEvent(updatedStateMap).foreach(eventCallbackFunc)
-      println(list)
-    }
-    def onSuccess(): Unit = {}
   }
 }

@@ -31,6 +31,7 @@ class LinuxInputRunnable(eventFilePath: String, callbackFunction: LinuxInputEven
       val numMicroSeconds = byteBuffer.getLong
       val numSeconds = byteBuffer.getLong
       val datetime = new DateTime(numSeconds * 1000L + numMicroSeconds)
+      println(touchCode + " " + touchValue)
       LinuxInputEvent(datetime, eventFilePath, touchCode, touchValue).foreach(callbackFunction)
     }
   }
