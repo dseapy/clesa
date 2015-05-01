@@ -18,6 +18,8 @@ case class HueEvent(datetime: DateTime,
           prop match {
             case "bri" => retLightState.setBrightness(value.toInt)
             case "on" => retLightState.setOn(value.toBoolean)
+            case "transitiontime" => retLightState.setTransitionTime(value.toInt)
+            case other => println(s"unknown property found in HueEvent.scala: $other")
           }
         }
       }
