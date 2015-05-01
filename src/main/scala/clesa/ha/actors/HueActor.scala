@@ -35,9 +35,17 @@ class HueActor(broadcastActor: ActorRef,
     sourceToLightIdsMap.get(source).flatMap(_.getActiveLightFromSource(source))
 
   def receive = {
+    case yt: YTranslation => if(stateKnown) stateKnown =
+      getActiveLightOptionFromSource(yt.source).filter(_.supportsColor && yt.value != 0).map{ light =>
+        !hue.increaseSaturationBy(light, yt.value * HueActor.satSensitivity)
+      }.getOrElse(true)
+    case xt: XTranslation => if(stateKnown) stateKnown =
+      getActiveLightOptionFromSource(xt.source).filter(_.supportsColor && xt.value != 0).map{ light =>
+        !hue.increaseHueBy(light, xt.value * HueActor.hueSensitivity)
+      }.getOrElse(true)
     case te: VWheel => if(stateKnown) stateKnown =
       getActiveLightOptionFromSource(te.source).map{ light =>
-        !hue.increaseBrightnessBy(light, te.value * 10)
+        !hue.increaseBrightnessBy(light, te.value * HueActor.briSensitivity)
       }.getOrElse(true)
     case bc: ButtonClick =>
       val enoughTimePassed = enoughTimePassedSinceLastEvent(lastButtonClickTime, bc.datetime)
@@ -45,7 +53,6 @@ class HueActor(broadcastActor: ActorRef,
       if(stateKnown && enoughTimePassed)
         stateKnown = getActiveLightOptionFromSource(bc.source).map{ light => !hue.toggle(light) }.getOrElse(true)
     case rs: SwipeFromSide =>
-      println(rs)
       val enoughTimePassed = enoughTimePassedSinceLastEvent(lastSwipeFromSideTime, rs.datetime)
       lastSwipeFromSideTime = rs.datetime
       if(enoughTimePassed) {
@@ -53,14 +60,16 @@ class HueActor(broadcastActor: ActorRef,
       }
     case he: HueEvent => hue.updateLightState(he)
                          stateKnown = true
-    case hError: PHHueError => {
+    case hError: PHHueError =>
       println(hError.getMessage)
       stateKnown = true
-    }
     case other =>
   }
 }
 
 object HueActor {
   val name = "HueActor"
+  val hueSensitivity = 200
+  val satSensitivity = 5
+  val briSensitivity = 5
 }

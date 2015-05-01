@@ -60,28 +60,48 @@ class Hue(eventCallbackFunc: HueEvent => Unit,
   }
   def updateLightState(hueEvent: HueEvent): Unit =
     allLights.foreach(l => l.setLastKnownLightState(hueEvent.updateState(l.getIdentifier, l.getLastKnownLightState)))
+  def increaseHueBy(light: PHLight, inc: Int): Boolean =
+    setHueTo(light, light.getLastKnownLightState.getHue + inc)
+  def setHueTo(light: PHLight, hue: Int): Boolean = {
+    if(light.getLastKnownLightState.isOn){//don't mess with hue if light is off
+      val updatedHue = (hue % (Hue.maxHue + 1)) + Hue.minHue
+      sendNewLightState(light, onOption = Some(true), hueOption = Some(updatedHue))
+    } else false
+  }
+  def increaseSaturationBy(light: PHLight, inc: Int): Boolean =
+    setSaturationTo(light, light.getLastKnownLightState.getSaturation + inc)
+  def setSaturationTo(light: PHLight, bri: Int): Boolean = {
+    if(light.getLastKnownLightState.isOn) { //don't mess with saturation if light is off
+      val updatedSaturation = bri min Hue.maxSaturation max Hue.minSaturation
+      sendNewLightState(light, onOption = Some(true), satOption = Some(updatedSaturation))
+    } else false
+  }
   def increaseBrightnessBy(light: PHLight, inc: Int): Boolean =
     setBrightnessTo(light, light.getLastKnownLightState.getBrightness + inc)
   def setBrightnessTo(light: PHLight, bri: Int): Boolean = {
-    val updatedBrightness = bri min 254
-    if(updatedBrightness < 0) setOff(light)
+    val updatedBrightness = bri min Hue.maxBrightness
+    if(updatedBrightness < Hue.minBrightness) setOff(light)
     else sendNewLightState(light, onOption = Some(true), briOption = Some(updatedBrightness))
   }
   def setOff(light: PHLight): Boolean = sendNewLightState(light, onOption = Some(false))
   def toggle(light: PHLight): Boolean = {
     val isOn = light.getLastKnownLightState.isOn
-    val briOption = if(!isOn) Some(254) else None
+    val briOption = if(!isOn) Some(Hue.maxBrightness) else None
     sendNewLightState(light, Some(!isOn), briOption)
   }
   def sendNewLightState(light: PHLight,
                         onOption: Option[Boolean] = None,
-                        briOption: Option[Int] = None): Boolean = {
+                        briOption: Option[Int] = None,
+                        satOption: Option[Int] = None,
+                        hueOption: Option[Int] = None ): Boolean = {
     val updatedLightState = new PHLightState
     onOption.find(_ != light.getLastKnownLightState.isOn).foreach(on => updatedLightState.setOn(on))
     briOption.find(_ != light.getLastKnownLightState.getBrightness || onOption.exists(_ == true)).foreach(bri => updatedLightState.setBrightness(bri))
+    satOption.find(_ != light.getLastKnownLightState.getSaturation).foreach(sat => updatedLightState.setSaturation(sat))
+    hueOption.find(_ != light.getLastKnownLightState.getHue).foreach(hue => updatedLightState.setHue(hue))
     if(updatedLightState != new PHLightState){
       println(s"Submitting light state: $updatedLightState to light $light")
-      updatedLightState.setTransitionTime(1)
+      updatedLightState.setTransitionTime(Hue.myDefaultTransitionTime)
       bridge.updateLightState(light, updatedLightState, pHLightListener)
       true
     } else false
@@ -92,4 +112,14 @@ class Hue(eventCallbackFunc: HueEvent => Unit,
   def getLightById(id: String): Option[PHLight] = allLights.find(_.getIdentifier.equalsIgnoreCase(id))
   def getLightByName(name: String): Option[PHLight] = allLights.find(_.getName.equalsIgnoreCase(name))
   def lightStates = allLights.map(l => l -> l.getLastKnownLightState).toMap
+}
+
+object Hue{
+  val minSaturation = 0
+  val minBrightness = 0
+  val maxSaturation = 254
+  val maxBrightness = 254
+  val minHue = 0
+  val maxHue = 65534
+  val myDefaultTransitionTime = 1
 }
