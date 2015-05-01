@@ -10,17 +10,17 @@ case class HueEvent(datetime: DateTime,
                     source: String,
                     updateMap: java.util.Map[String, String])
   extends Event {
-  def updateState(id: String, phls: PHLightState): PHLightState = {
+  def updateState(phls: PHLightState): PHLightState = {
     val retLightState = new PHLightState(phls)
     Try {
-      if (id == source) {
-        for((prop, value) <- updateMap){
-          prop match {
-            case "bri" => retLightState.setBrightness(value.toInt)
-            case "on" => retLightState.setOn(value.toBoolean)
-            case "transitiontime" => retLightState.setTransitionTime(value.toInt)
-            case other => println(s"unknown property found in HueEvent.scala: $other")
-          }
+      for((prop, value) <- updateMap){
+        prop match {
+          case "bri" => retLightState.setBrightness(value.toInt)
+          case "on" => retLightState.setOn(value.toBoolean)
+          case "hue" => retLightState.setHue(value.toInt)
+          case "sat" => retLightState.setSaturation(value.toInt)
+          case "transitiontime" => retLightState.setTransitionTime(value.toInt)
+          case other => println(s"unknown property found in HueEvent.scala: $other")
         }
       }
       retLightState

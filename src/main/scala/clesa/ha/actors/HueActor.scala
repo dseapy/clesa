@@ -15,6 +15,7 @@ class HueActor(broadcastActor: ActorRef,
   var stateKnown = true
   var lastButtonClickTime = new DateTime(0L)
   var lastSwipeFromSideTime = new DateTime(0L)
+  var lastWheelTime = new DateTime(0L)
 
   //useful for button presses and other non-cumulative actions
   def enoughTimePassedSinceLastEvent(oldTime: DateTime, newTime: DateTime) = oldTime plusMillis 300 isBefore newTime
@@ -26,7 +27,7 @@ class HueActor(broadcastActor: ActorRef,
                     "ha",
                     "newdeveloper")
 
-  val sourceToLightIdsMap = Map("/dev/input/event3" -> LightIdsWithActive("1","2",activeLightFirst = true))
+  val sourceToLightIdsMap = Map("/dev/input/event3" -> LightIdsWithActive("3","2",activeLightFirst = true))
   case class LightIdsWithActive(lightId0: String, lightId1: String, var activeLightFirst: Boolean){
     def getActiveLightId = if(activeLightFirst) lightId0 else lightId1
     def getActiveLightFromSource(source: String) = hue.allLights.find(_.getIdentifier == getActiveLightId)
@@ -35,18 +36,27 @@ class HueActor(broadcastActor: ActorRef,
     sourceToLightIdsMap.get(source).flatMap(_.getActiveLightFromSource(source))
 
   def receive = {
-    case yt: YTranslation => if(stateKnown) stateKnown =
-      getActiveLightOptionFromSource(yt.source).filter(_.supportsColor && yt.value != 0).map{ light =>
-        !hue.increaseSaturationBy(light, yt.value * HueActor.satSensitivity)
-      }.getOrElse(true)
-    case xt: XTranslation => if(stateKnown) stateKnown =
-      getActiveLightOptionFromSource(xt.source).filter(_.supportsColor && xt.value != 0).map{ light =>
-        !hue.increaseHueBy(light, xt.value * HueActor.hueSensitivity)
-      }.getOrElse(true)
-    case te: VWheel => if(stateKnown) stateKnown =
-      getActiveLightOptionFromSource(te.source).map{ light =>
-        !hue.increaseBrightnessBy(light, te.value * HueActor.briSensitivity)
-      }.getOrElse(true)
+    case yt: YTranslation =>
+      if(enoughTimePassedSinceLastEvent(lastWheelTime, yt.datetime)) {
+        if (stateKnown) stateKnown =
+          getActiveLightOptionFromSource(yt.source).filter(_.supportsColor && yt.value != 0).map { light =>
+            !hue.increaseSaturationBy(light, -yt.value * HueActor.satSensitivity)
+          }.getOrElse(true)
+      }
+    case xt: XTranslation =>
+      if(enoughTimePassedSinceLastEvent(lastWheelTime, xt.datetime)) {
+        if (stateKnown) stateKnown =
+          getActiveLightOptionFromSource(xt.source).filter(_.supportsColor && xt.value != 0).map { light =>
+            !hue.increaseHueBy(light, xt.value * HueActor.hueSensitivity)
+          }.getOrElse(true)
+      }
+    case te: VWheel => {
+      lastWheelTime = te.datetime
+      if(stateKnown) stateKnown =
+        getActiveLightOptionFromSource(te.source).map{ light =>
+          !hue.increaseBrightnessBy(light, te.value * HueActor.briSensitivity)
+        }.getOrElse(true)
+    }
     case bc: ButtonClick =>
       val enoughTimePassed = enoughTimePassedSinceLastEvent(lastButtonClickTime, bc.datetime)
       lastButtonClickTime = bc.datetime
@@ -69,7 +79,7 @@ class HueActor(broadcastActor: ActorRef,
 
 object HueActor {
   val name = "HueActor"
-  val hueSensitivity = 200
+  val hueSensitivity = 20
   val satSensitivity = 5
   val briSensitivity = 5
 }

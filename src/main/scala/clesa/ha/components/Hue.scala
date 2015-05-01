@@ -59,12 +59,13 @@ class Hue(eventCallbackFunc: HueEvent => Unit,
     }
   }
   def updateLightState(hueEvent: HueEvent): Unit =
-    allLights.foreach(l => l.setLastKnownLightState(hueEvent.updateState(l.getIdentifier, l.getLastKnownLightState)))
+    allLights.find(_.getIdentifier == hueEvent.source).foreach(l => l.setLastKnownLightState(hueEvent.updateState(l.getLastKnownLightState)))
   def increaseHueBy(light: PHLight, inc: Int): Boolean =
     setHueTo(light, light.getLastKnownLightState.getHue + inc)
   def setHueTo(light: PHLight, hue: Int): Boolean = {
     if(light.getLastKnownLightState.isOn){//don't mess with hue if light is off
-      val updatedHue = (hue % (Hue.maxHue + 1)) + Hue.minHue
+      val updatedHue = if(hue < Hue.minHue) Hue.maxHue + 1 - (-hue % Hue.maxHue) else (hue % (Hue.maxHue + 1)) + Hue.minHue
+      println("updatedHue: " + updatedHue)
       sendNewLightState(light, onOption = Some(true), hueOption = Some(updatedHue))
     } else false
   }
@@ -96,11 +97,10 @@ class Hue(eventCallbackFunc: HueEvent => Unit,
                         hueOption: Option[Int] = None ): Boolean = {
     val updatedLightState = new PHLightState
     onOption.find(_ != light.getLastKnownLightState.isOn).foreach(on => updatedLightState.setOn(on))
-    briOption.find(_ != light.getLastKnownLightState.getBrightness || onOption.exists(_ == true)).foreach(bri => updatedLightState.setBrightness(bri))
+    briOption.find(_ != light.getLastKnownLightState.getBrightness || (!light.getLastKnownLightState.isOn && onOption.exists(_ == true))).foreach(bri => updatedLightState.setBrightness(bri))
     satOption.find(_ != light.getLastKnownLightState.getSaturation).foreach(sat => updatedLightState.setSaturation(sat))
     hueOption.find(_ != light.getLastKnownLightState.getHue).foreach(hue => updatedLightState.setHue(hue))
     if(updatedLightState != new PHLightState){
-      println(s"Submitting light state: $updatedLightState to light $light")
       updatedLightState.setTransitionTime(Hue.myDefaultTransitionTime)
       bridge.updateLightState(light, updatedLightState, pHLightListener)
       true
