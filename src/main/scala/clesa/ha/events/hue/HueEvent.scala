@@ -2,6 +2,7 @@ package clesa.ha.events.hue
 
 import clesa.ha.events.Event
 import com.philips.lighting.model.PHLightState
+import com.typesafe.scalalogging.slf4j.Logging
 import org.joda.time.DateTime
 import scala.util.Try
 import collection.JavaConversions._
@@ -9,7 +10,7 @@ import collection.JavaConversions._
 case class HueEvent(datetime: DateTime,
                     source: String,
                     updateMap: java.util.Map[String, String])
-  extends Event {
+  extends Event with Logging {
   def updateState(phls: PHLightState): PHLightState = {
     val retLightState = new PHLightState(phls)
     Try {
@@ -20,7 +21,7 @@ case class HueEvent(datetime: DateTime,
           case "hue" => retLightState.setHue(value.toInt)
           case "sat" => retLightState.setSaturation(value.toInt)
           case "transitiontime" => retLightState.setTransitionTime(value.toInt)
-          case other => println(s"unknown property found in HueEvent.scala: $other")
+          case other => logger.trace(s"unknown property found in HueEvent.scala: $other")
         }
       }
       retLightState

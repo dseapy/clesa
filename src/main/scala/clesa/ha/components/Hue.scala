@@ -6,6 +6,7 @@ import clesa.ha.events.hue.HueEvent
 import com.philips.lighting.hue.listener.PHLightListener
 import com.philips.lighting.hue.sdk.{PHAccessPoint, PHHueSDK}
 import com.philips.lighting.model.{PHLightState, PHBridgeResource, PHHueError, PHLight}
+import com.typesafe.scalalogging.slf4j.Logging
 
 import scala.collection.JavaConversions._
 
@@ -14,7 +15,7 @@ class Hue(eventCallbackFunc: HueEvent => Unit,
           ipAddress: String,
           appName: String = "clesa",
           deviceName: String = "ha",
-          username: String = "newdeveloper") {
+          username: String = "newdeveloper") extends Logging {
 
   val hueSdk = {
     val hSdk = PHHueSDK.create()
@@ -42,7 +43,6 @@ class Hue(eventCallbackFunc: HueEvent => Unit,
     def onReceivingLightDetails(phLight: PHLight): Unit = {}
     def onError(i: Int, s: String): Unit = errorCallbackFunc(new PHHueError(i, s, ipAddress))
     def onStateUpdate(updatedStateMap: util.Map[String, String], list: util.List[PHHueError]): Unit = {
-      println(updatedStateMap)
       HueEvent(updatedStateMap).foreach(eventCallbackFunc)
     }
     def onSuccess(): Unit = {}
@@ -52,20 +52,22 @@ class Hue(eventCallbackFunc: HueEvent => Unit,
     if(!hueSdk.isAccessPointConnected(accessPoint)){
       hueSdk.connect(accessPoint)
       while(!hueSdk.isAccessPointConnected(accessPoint)){
-        println("Waiting to connect to hue...")
+        logger.info("Waiting to connect to hue...")
         Thread.sleep(300L)
       }
-      println("Connected to hue!")
+      logger.info("Connected to hue!")
     }
   }
   def updateLightState(hueEvent: HueEvent): Unit =
-    allLights.find(_.getIdentifier == hueEvent.source).foreach(l => l.setLastKnownLightState(hueEvent.updateState(l.getLastKnownLightState)))
+    for(light <- allLights.find(_.getIdentifier == hueEvent.source)) {
+      light.setLastKnownLightState(hueEvent.updateState(light.getLastKnownLightState))
+    }
   def increaseHueBy(light: PHLight, inc: Int): Boolean =
     setHueTo(light, light.getLastKnownLightState.getHue + inc)
   def setHueTo(light: PHLight, hue: Int): Boolean = {
     if(light.getLastKnownLightState.isOn){//don't mess with hue if light is off
       val updatedHue = if(hue < Hue.minHue) Hue.maxHue + 1 - (-hue % Hue.maxHue) else (hue % (Hue.maxHue + 1)) + Hue.minHue
-      println("updatedHue: " + updatedHue)
+      logger.info(s"updatedHue: $updatedHue")
       sendNewLightState(light, onOption = Some(true), hueOption = Some(updatedHue))
     } else false
   }

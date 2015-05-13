@@ -5,12 +5,13 @@ import clesa.ha.components.Hue
 import clesa.ha.events.hue.HueEvent
 import clesa.ha.events.linuxinput._
 import com.philips.lighting.model.{PHLight, PHHueError}
+import com.typesafe.scalalogging.slf4j.Logging
 import org.joda.time.DateTime
 import collection.JavaConversions._
 
 class HueActor(broadcastActor: ActorRef,
                ipAddress: String)
-  extends Actor {
+  extends Actor with Logging {
 
   var stateKnown = true
   var lastButtonClickTime = new DateTime(0L)
@@ -71,7 +72,7 @@ class HueActor(broadcastActor: ActorRef,
     case he: HueEvent => hue.updateLightState(he)
                          stateKnown = true
     case hError: PHHueError =>
-      println(hError.getMessage)
+      logger.error(hError.getMessage)
       stateKnown = true
     case other =>
   }

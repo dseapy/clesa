@@ -3,10 +3,12 @@ package clesa.ha.utils
 import java.io.{InputStreamReader, BufferedReader, OutputStreamWriter}
 import java.net.{HttpURLConnection, URL}
 
-object RestUtils {
+import com.typesafe.scalalogging.slf4j.Logging
+
+object RestUtils extends Logging {
 
   def get(urlStr: String): String = {
-    println(s"Making GET request to $urlStr")
+    logger.info(s"Making GET request to $urlStr")
     val url = new URL(fixUrlString(urlStr))
     val httpCon = url.openConnection().asInstanceOf[HttpURLConnection]
     httpCon.setDoOutput(true)
@@ -17,7 +19,7 @@ object RestUtils {
   }
 
   def put(urlStr: String, str: String): String = {
-    println(s"Making PUT request to $urlStr with string $str")
+    logger.info(s"Making PUT request to $urlStr with string $str")
     val url = new URL(fixUrlString(urlStr))
     val httpCon = url.openConnection().asInstanceOf[HttpURLConnection]
     httpCon.setDoOutput(true)

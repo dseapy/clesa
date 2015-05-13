@@ -1,7 +1,7 @@
 package clesa.ha.events.linuxinput
 
 import clesa.ha.events.Event
-import org.apache.log4j.Logger
+import com.typesafe.scalalogging.slf4j.Logging
 import org.joda.time.DateTime
 
 trait LinuxInputEvent
@@ -11,22 +11,23 @@ trait LinuxInputEvent
   def code: Int
   def value: Int
 }
-object LinuxInputEvent{
+object LinuxInputEvent extends Logging {
   def apply(datetime: DateTime, source: String, code: Short, value: Int): Option[LinuxInputEvent] = {
-    println(s"$source $code $value")
+    logger.trace(s"$source $code $value")
     code match {
-      case XTranslation.code => Some(XTranslation(datetime, source, value))
-      case YTranslation.code => Some(YTranslation(datetime, source, value))
-      case HWheel.code => Some(HWheel(datetime, source, value))
-      case Dial.code => Some(Dial(datetime, source, value))
-      case VWheel.code => Some(VWheel(datetime, source, value))
+      case XTranslation.code =>     Some(XTranslation(datetime, source, value))
+      case YTranslation.code =>     Some(YTranslation(datetime, source, value))
+      case HWheel.code =>           Some(HWheel(datetime, source, value))
+      case Dial.code =>             Some(Dial(datetime, source, value))
+      case VWheel.code =>           Some(VWheel(datetime, source, value))
       case RightButtonClick.code => Some(RightButtonClick(datetime, source, value))
-      case LeftButtonClick.code => Some(LeftButtonClick(datetime, source, value))
-      case FromLeftSwipe.code => Some(FromLeftSwipe(datetime, source, value))
-      case FromRightSwipe.code => Some(FromRightSwipe(datetime, source, value))
-      case Misc.code => Some(Misc(datetime, source, value))
-      case other => Logger.getLogger(LinuxInputEvent.getClass).error(s"Could not create touchpad event for code $other")
-                    None
+      case LeftButtonClick.code =>  Some(LeftButtonClick(datetime, source, value))
+      case FromLeftSwipe.code =>    Some(FromLeftSwipe(datetime, source, value))
+      case FromRightSwipe.code =>   Some(FromRightSwipe(datetime, source, value))
+      case Misc.code =>             Some(Misc(datetime, source, value))
+      case other =>
+        logger.error(s"Could not create touchpad event for code $other")
+        None
     }
   }
 }
