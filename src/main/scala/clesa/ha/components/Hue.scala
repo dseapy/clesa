@@ -13,9 +13,9 @@ import scala.collection.JavaConversions._
 class Hue(eventCallbackFunc: HueEvent => Unit,
           errorCallbackFunc: PHHueError => Unit,
           ipAddress: String,
-          appName: String = "clesa",
-          deviceName: String = "ha",
-          username: String = "newdeveloper") extends Logging {
+          appName: String = Hue.defaultAppName,
+          deviceName: String = Hue.defaultDeviceName,
+          username: String = Hue.defaultUserName) extends Logging {
 
   val hueSdk = {
     val hSdk = PHHueSDK.create()
@@ -117,6 +117,9 @@ class Hue(eventCallbackFunc: HueEvent => Unit,
 }
 
 object Hue{
+  val defaultAppName = "clesa"
+  val defaultDeviceName = "ha"
+  val defaultUserName = "newdeveloper"
   val minSaturation = 0
   val minBrightness = 0
   val maxSaturation = 254

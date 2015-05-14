@@ -5,13 +5,24 @@ import clesa.ha.components.Hue
 import clesa.ha.events.hue.HueEvent
 import clesa.ha.events.linuxinput._
 import com.philips.lighting.model.{PHLight, PHHueError}
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.slf4j.Logging
 import org.joda.time.DateTime
 import collection.JavaConversions._
 
 class HueActor(broadcastActor: ActorRef,
-               ipAddress: String)
+               ipAddress: String,
+               inputSourceId: String,
+               lightId1: String,
+               lightId2: String)
   extends Actor with Logging {
+
+  def this(bActor: ActorRef, config: Config) =
+    this(bActor,
+         config.getString("ip-address"),
+         config.getString("input-source-id"),
+         config.getString("light-id-1"),
+         config.getString("light-id-2"))
 
   var stateKnown = true
   var lastButtonClickTime = new DateTime(0L)
@@ -23,12 +34,9 @@ class HueActor(broadcastActor: ActorRef,
 
   val hue = new Hue(hueEvent => broadcastActor ! hueEvent,
                     hueError => self ! hueError,
-                    ipAddress,
-                    "clesa",
-                    "ha",
-                    "newdeveloper")
+                    ipAddress)
 
-  val sourceToLightIdsMap = Map("/dev/input/event3" -> LightIdsWithActive("3","2",activeLightFirst = true))
+  val sourceToLightIdsMap = Map(inputSourceId -> LightIdsWithActive(lightId1, lightId2,activeLightFirst = true))
   case class LightIdsWithActive(lightId0: String, lightId1: String, var activeLightFirst: Boolean){
     def getActiveLightId = if(activeLightFirst) lightId0 else lightId1
     def getActiveLightFromSource(source: String) = hue.allLights.find(_.getIdentifier == getActiveLightId)
